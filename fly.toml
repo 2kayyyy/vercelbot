@@ -1,0 +1,9 @@
+app = "bot-polished-dawn-1074"
+primary_region = "ord"  # Chicago, from your earlier output
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  

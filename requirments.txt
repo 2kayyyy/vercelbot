@@ -1,0 +1,2 @@
+flask~=2.2.5  # Vercel supports up to 2.2.5 reliably
+requests~=2.31.0
