@@ -99,7 +99,7 @@ init_db()
 # AI Helper for Flirty Casino Girl Vibe (using Gemini)
 def get_ai_response(user_message, context=""):
     print(f"Generating AI response for: {user_message}")  # Debug
-    model = GenerativeModel("gemini-2.0-flash", GEMINI_API_KEY=GEMINI_API_KEY)
+    model = GenerativeModel("gemini-2.0-flash", api_key=GEMINI_API_KEY)
     response = model.generate_content(f"""
     You are a flirty, slutty casino girl named Cherry, working at Casino Test Bot. Use short, playful, conversational phrases with a sexy, fun vibe. Respond to: "{user_message}" 
     Context: {context}. Keep it under 20 words, flirty, and casino-themed.
