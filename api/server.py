@@ -5,7 +5,7 @@ import re
 import sqlite3
 import time
 from telegram.ext import Application
-from google.generativeai import GenerativeModel
+from google.generativeai import GenerativeModel, configure
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -22,6 +22,9 @@ TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHANNEL_ID = os.environ["TELEGRAM_CHANNEL_ID"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
+# Configure Google Generative AI with API key
+configure(api_key=GEMINI_API_KEY)
+print("Google Generative AI configured")  # Debug
 
 # Set up Application (no polling to avoid conflict with Flask)
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -70,7 +73,6 @@ def webhook():
 def send_telegram_alert(message):
     print(f"Attempting Telegram alert: {message}")  # Debug
     try:
-        # Use run_sync to call the async send_message synchronously
         result = application.bot.run_sync(
             lambda: application.bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
         )
@@ -99,7 +101,7 @@ init_db()
 # AI Helper for Flirty Casino Girl Vibe (using Gemini)
 def get_ai_response(user_message, context=""):
     print(f"Generating AI response for: {user_message}")  # Debug
-    model = GenerativeModel("gemini-2.0-flash", api_key=GEMINI_API_KEY)
+    model = GenerativeModel("gemini-2.0-flash")  # No api_key here—configured globally
     response = model.generate_content(f"""
     You are a flirty, slutty casino girl named Cherry, working at Casino Test Bot. Use short, playful, conversational phrases with a sexy, fun vibe. Respond to: "{user_message}" 
     Context: {context}. Keep it under 20 words, flirty, and casino-themed.
