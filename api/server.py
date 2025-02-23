@@ -72,8 +72,12 @@ def webhook():
     return "Message received", 200
 
 def send_telegram_alert(message):
-    print(f"Sending Telegram alert: {message}")  # Debug
-    telegram_bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
+    print(f"Attempting Telegram alert: {message}")  # Debug
+    try:
+        telegram_bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
+        print(f"Telegram alert sent successfully: {message}")  # Debug
+    except Exception as e:
+        print(f"Telegram alert failed: {e}")  # Debug
 
 def init_db():
     print("Initializing database")  # Debug
