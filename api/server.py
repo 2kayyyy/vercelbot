@@ -4,9 +4,8 @@ import os
 import re
 import sqlite3
 import time
-from telegram import Bot
 from telegram.ext import Application
-from openai import OpenAI
+from google.generativeai import GenerativeModel
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -21,11 +20,8 @@ PAGE_ACCESS_TOKEN = os.environ["PAGE_ACCESS_TOKEN"]
 CASH_APP_RECEIVER = os.environ["CASH_APP_RECEIVER"]
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHANNEL_ID = os.environ["TELEGRAM_CHANNEL_ID"]
-OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
-# Initialize bot globally
-telegram_bot = Bot(TELEGRAM_BOT_TOKEN)
-print(f"Telegram bot initialized with token: {TELEGRAM_BOT_TOKEN[:5]}...")  # Debug (partial token for safety)
 
 # Set up Application (no polling to avoid conflict with Flask)
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -74,7 +70,10 @@ def webhook():
 def send_telegram_alert(message):
     print(f"Attempting Telegram alert: {message}")  # Debug
     try:
-        telegram_bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
+        # Use run_sync to call the async send_message synchronously
+        result = application.bot.run_sync(
+            lambda: application.bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
+        )
         print(f"Telegram alert sent successfully: {message}")  # Debug
     except Exception as e:
         print(f"Telegram alert failed: {e}")  # Debug
@@ -97,23 +96,15 @@ def init_db():
 
 init_db()
 
-# AI Helper for Flirty Casino Girl Vibe
+# AI Helper for Flirty Casino Girl Vibe (using Gemini)
 def get_ai_response(user_message, context=""):
     print(f"Generating AI response for: {user_message}")  # Debug
-    prompt = f"""
+    model = GenerativeModel("gemini-2.0-flash", google_api_key=GEMINI_API_KEY)
+    response = model.generate_content(f"""
     You are a flirty, slutty casino girl named Cherry, working at Casino Test Bot. Use short, playful, conversational phrases with a sexy, fun vibe. Respond to: "{user_message}" 
     Context: {context}. Keep it under 20 words, flirty, and casino-themed.
-    """
-    try:
-        response = OpenAI(api_key=OPENAI_API_KEY).chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=50
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"AI error: {e}")
-        return "Ooh, Cherry’s flustered—try again, sugar! 😘"
+    """)
+    return response.text.strip() if response.text else "Hey hun😘 how can i help you?"
 
 def send_message(sender_id, text):
     url = "https://graph.facebook.com/v19.0/me/messages"
