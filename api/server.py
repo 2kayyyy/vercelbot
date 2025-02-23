@@ -77,7 +77,8 @@ def send_telegram_alert(message):
 
 def init_db():
     print("Initializing database")  # Debug
-    conn = sqlite3.connect('receipts.db')
+    db_path = '/tmp/receipts.db'  # Use /tmp for Vercel
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS receipts 
                  (id TEXT PRIMARY KEY, sender_id TEXT, amount REAL, timestamp TEXT)''')
@@ -143,7 +144,7 @@ def verify_receipt(url, sender_id):
         if receiver != CASH_APP_RECEIVER:
             return False
 
-        conn = sqlite3.connect('receipts.db')
+        conn = sqlite3.connect('/tmp/receipts.db')
         c = conn.cursor()
         c.execute("SELECT id FROM receipts WHERE id=?", (url,))
         if c.fetchone():
@@ -213,7 +214,7 @@ def parse_split_recharge(message, sender_id):
     return games
 
 def record_recharge(sender_id, game, username, amount, cash_app):
-    conn = sqlite3.connect('receipts.db')
+    conn = sqlite3.connect('/tmp/receipts.db')
     c = conn.cursor()
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     c.execute("INSERT INTO game_recharges (id, sender_id, game, username, amount, cash_app, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -248,7 +249,7 @@ def get_points(sender_id, game, username):
     return 50.0  # Example points
 
 def record_cashout(sender_id, game, username, amount, points_remaining):
-    conn = sqlite3.connect('receipts.db')
+    conn = sqlite3.connect('/tmp/receipts.db')
     c = conn.cursor()
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     c.execute("INSERT INTO cashouts (id, sender_id, game, username, amount, points_remaining, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
