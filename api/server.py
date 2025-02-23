@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import time
+from telegram import Bot
 from telegram.ext import Application
 from google.generativeai import GenerativeModel, configure
 from dotenv import load_dotenv
@@ -26,9 +27,10 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 configure(api_key=GEMINI_API_KEY)
 print("Google Generative AI configured")  # Debug
 
-# Set up Application (no polling to avoid conflict with Flask)
+# Set up Application and Bot
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 print("Telegram Application built")  # Debug
+telegram_bot = Bot(TELEGRAM_BOT_TOKEN)  # Use Bot directly for synchronous calls
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -48,17 +50,17 @@ def webhook():
                     message_text = event['message']['text'].lower()
                     print(f"Message from {sender_id}: {message_text}")  # Debug
                     facebook_name = get_facebook_name(sender_id)  # Mock
-                    if "hi" in message_text:
-                        reply = get_ai_response("hi", "Welcome to the casino!")
+                    if "hi" in message_text or "hello" in message_text:
+                        reply = get_ai_response(message_text, "Casual greeting at casino")
                         send_message(sender_id, reply)
                     elif "username" in message_text:
-                        reply = get_ai_response("username", "Asking for game username!")
+                        reply = get_ai_response(message_text, "Asking for game username")
                         send_message(sender_id, reply)
                     elif "cash.app" in message_text:
                         handle_cash_in(sender_id, message_text, facebook_name)
                     elif message_text == "yes":
                         amount = get_last_amount(sender_id)
-                        reply = get_ai_response(f"confirm recharge of ${amount}", "Confirming recharge!")
+                        reply = get_ai_response(f"confirm recharge of ${amount}", "Confirming recharge")
                         send_message(sender_id, reply)
                     elif "split" in message_text:
                         handle_split_recharge(sender_id, message_text, facebook_name)
@@ -68,14 +70,15 @@ def webhook():
                         handle_cash_out(sender_id, message_text, facebook_name)
                     elif any(word in message_text for word in ["support", "help", "issue"]):
                         handle_support(sender_id, message_text, facebook_name)
+                    else:
+                        reply = get_ai_response(message_text, "Casual casino interaction")
+                        send_message(sender_id, reply)
     return "Message received", 200
 
 def send_telegram_alert(message):
     print(f"Attempting Telegram alert: {message}")  # Debug
     try:
-        result = application.bot.run_sync(
-            lambda: application.bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
-        )
+        telegram_bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)  # Synchronous call
         print(f"Telegram alert sent successfully: {message}")  # Debug
     except Exception as e:
         print(f"Telegram alert failed: {e}")  # Debug
@@ -98,15 +101,26 @@ def init_db():
 
 init_db()
 
-# AI Helper for Flirty Casino Girl Vibe (using Gemini)
+# AI Helper for Casino Girl Responses (using Gemini)
 def get_ai_response(user_message, context=""):
     print(f"Generating AI response for: {user_message}")  # Debug
-    model = GenerativeModel("gemini-2.0-flash")  # No api_key here—configured globally
-    response = model.generate_content(f"""
-    You are a flirty, slutty casino girl named Cherry, working at Casino Test Bot. Use short, playful, conversational phrases with a sexy, fun vibe. Respond to: "{user_message}" 
-    Context: {context}. Keep it under 20 words, flirty, and casino-themed.
-    """)
-    return response.text.strip() if response.text else "Hey hun😘 how can i help you?"
+    model = GenerativeModel("gemini-2.0-flash")  # API key configured globally
+    if any(word in user_message for word in ["support", "help", "issue"]):
+        prompt = f"""
+        You are Cherry, a serious casino support agent at Casino Test Bot, with a Texan girl vibe (natural, not robotic). Respond to: "{user_message}" 
+        Context: {context}. Provide a concise, professional response (under 20 words), focusing on casino support. No flirty or funny tones.
+        """
+    else:
+        prompt = f"""
+        You are Cherry, a flirty casino girl at Casino Test Bot, with an Instagram-model vibe, Texan girl charm (natural, not robotic), and subtle sexy casino perspective. Respond to: "{user_message}" 
+        Context: {context}. Use short, playful, cheerful phrases (under 20 words), flirty but not cheesy, and casino-themed. Add light emojis like 😊 or 😉.
+        """
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip() if response.text else "Hey there, how can I assist you? 😊"
+    except Exception as e:
+        print(f"AI error: {e}")
+        return "Sorry, I’m having trouble—try again later. 😊"
 
 def send_message(sender_id, text):
     url = "https://graph.facebook.com/v19.0/me/messages"
@@ -123,11 +137,11 @@ def handle_cash_in(sender_id, url, facebook_name):
     if verify_receipt(url, sender_id):
         amount = get_receipt_amount(url)
         send_telegram_alert(f"Cash In Alert\nFacebook Name: {facebook_name}\nCashApp Amount: ${amount}")
-        reply = get_ai_response(f"sent ${amount} to {CASH_APP_RECEIVER}", "Confirming cash in!")
+        reply = get_ai_response(f"sent ${amount} to {CASH_APP_RECEIVER}", "Confirming cash-in")
         send_message(sender_id, f"{reply} Confirm to recharge? (Yes/No)")
     else:
-        reply = get_ai_response("invalid receipt", "Oops, naughty receipt!")
-        send_message(sender_id, f"{reply} Try again, sugar!")
+        reply = get_ai_response("invalid receipt", "Cash-in issue")
+        send_message(sender_id, f"{reply} Invalid receipt—try again, y’all. 😊")
 
 def verify_receipt(url, sender_id):
     try:
@@ -172,9 +186,9 @@ def handle_split_recharge(sender_id, message, facebook_name):
         if amount <= total_amount:
             recharge_amount = amount * 1.1  # +10% bonus
             record_recharge(sender_id, game, username, recharge_amount, cash_app)
-            reply = get_ai_response(f"recharged {game} for ${recharge_amount}", f"Recharging {game}!")
-            send_message(sender_id, f"{reply} Ooh, hot wins, babe! 💋")
-    send_message(sender_id, "Recharges processed! Check your games, darling! 😘")
+            reply = get_ai_response(f"recharged {game} for ${recharge_amount}", f"Recharging {game}")
+            send_message(sender_id, f"{reply} Enjoy the games, sugar! 😉")
+    send_message(sender_id, "Recharges processed—check your games, y’all. 😊")
     send_telegram_alert(f"Cash In Alert\nFacebook Name: {facebook_name}\nCashApp Amount: ${total_amount}\nGame: {', '.join(g[0] for g in games)}\nGame Username: {', '.join(g[1] for g in games)}\nRecharge Amount: ${sum(g[2] * 1.1 for g in games)}")
 
 def handle_single_recharge(sender_id, message, facebook_name):
@@ -182,8 +196,8 @@ def handle_single_recharge(sender_id, message, facebook_name):
     amount = get_last_amount(sender_id)
     recharge_amount = amount * 1.1  # +10% bonus
     record_recharge(sender_id, game, username, recharge_amount, CASH_APP_RECEIVER)
-    reply = get_ai_response(f"recharged {game} for ${recharge_amount}", "Big win, sexy!")
-    send_message(sender_id, f"{reply} You can cashout: $40 to $100 / Enjoy the game, honey! ❤️")
+    reply = get_ai_response(f"recharged {game} for ${recharge_amount}", "Single game recharge")
+    send_message(sender_id, f"{reply} Cash out $40–$100—enjoy, darlin’! 😉")
     send_telegram_alert(f"Cash In Alert\nFacebook Name: {facebook_name}\nCashApp Amount: ${amount}\nGame: {game}\nGame Username: {username}\nRecharge Amount: ${recharge_amount}")
 
 def parse_game_username(message, sender_id):
@@ -224,8 +238,8 @@ def handle_cash_out(sender_id, message, facebook_name):
     deposit = get_last_amount(sender_id) * 1.1  # Initial recharge + 10%
     points = get_points(sender_id, game, username)
     if points < deposit * 3 or points > deposit * 10:
-        reply = get_ai_response("invalid cashout", "Naughty cashout, babe—try again!")
-        send_message(sender_id, f"{reply} Must be 3-10x deposit (${deposit:.2f}). Points: {points}")
+        reply = get_ai_response("invalid cashout", "Cash-out issue")
+        send_message(sender_id, f"{reply} Cash-out must be 3–10x deposit (${deposit:.2f}). Points: {points}")
         return
     cashout_amount = max(40.0, min(points, deposit * 10))  # Min $40, max 10x
     points_remaining = points - cashout_amount
@@ -235,10 +249,10 @@ def handle_cash_out(sender_id, message, facebook_name):
     next_cashout_max = points_remaining * 10 if points_remaining > 0 else 0
     send_telegram_alert(f"Cash Out Alert\nFacebook Name: {facebook_name}\nGame: {game}\nGame Username: {username}\nCashout Amount: ${cashout_amount}\nPoints Remaining: {points_remaining}")
     record_cashout(sender_id, game, username, cashout_amount, points_remaining)
-    reply = get_ai_response(f"cashout ${cashout_amount}", "Big win, sexy—cashin’ out!")
-    message = f"{reply} Your cashout of ${cashout_amount} sent to ID [Y] for ${cashout_amount}.\n{points_remaining} points left."
+    reply = get_ai_response(f"cashout ${cashout_amount}", "Cash-out confirmation")
+    message = f"{reply} Your ${cashout_amount} cash-out sent to ID [Y]. {points_remaining} points left."
     if points_remaining > 0:
-        message += f"\nNext cashout: ${next_cashout_min:.2f} to ${next_cashout_max:.2f}"
+        message += f" Next cash-out: ${next_cashout_min:.2f}–${next_cashout_max:.2f}"
     send_message(sender_id, message)
 
 def get_points(sender_id, game, username):
@@ -257,8 +271,8 @@ def record_cashout(sender_id, game, username, amount, points_remaining):
 def handle_support(sender_id, message, facebook_name):
     summary = message or "User requests support"
     send_telegram_alert(f"Support Alert\nFacebook Name: {facebook_name}\nShort Summary: {summary}")
-    reply = get_ai_response("support request", "Oh, honey, I’ll get help—talk dirty to support! 😘")
-    send_message(sender_id, f"{reply} Our team will contact you soon. Details, please!")
+    reply = get_ai_response(message, "Casino support request")  # Use message_text for specific issue
+    send_message(sender_id, f"{reply} Our team will review your issue and contact you soon.")
 
 def get_facebook_name(sender_id):
     # Mock—fetch from Facebook Graph API later
