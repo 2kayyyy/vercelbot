@@ -4,7 +4,8 @@ import os
 import re
 import sqlite3
 import time
-from telegram.ext import Application
+import asyncio
+from telegram import Bot
 from google.generativeai import GenerativeModel, configure
 from dotenv import load_dotenv
 
@@ -26,9 +27,9 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 configure(api_key=GEMINI_API_KEY)
 print("Google Generative AI configured")  # Debug
 
-# Set up Application and Bot
-application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-print("Telegram Application built")  # Debug
+# Initialize Telegram bot (synchronous)
+telegram_bot = Bot(TELEGRAM_BOT_TOKEN)
+print(f"Telegram bot initialized with token: {TELEGRAM_BOT_TOKEN[:5]}...")  # Debug (partial token for safety)
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -76,13 +77,11 @@ def webhook():
 def send_telegram_alert(message):
     print(f"Attempting Telegram alert: {message}")  # Debug
     try:
-        result = application.bot.run_sync(
-            lambda: application.bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
-        )
+        # Use asyncio.run to execute the async send_message synchronously
+        asyncio.run(telegram_bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message))
         print(f"Telegram alert sent successfully: {message}")  # Debug
     except Exception as e:
         print(f"Telegram alert failed: {e}")  # Debug
-
 
 def init_db():
     print("Initializing database")  # Debug
@@ -272,7 +271,7 @@ def record_cashout(sender_id, game, username, amount, points_remaining):
 def handle_support(sender_id, message, facebook_name):
     summary = message or "User requests support"
     send_telegram_alert(f"Support Alert\nFacebook Name: {facebook_name}\nShort Summary: {summary}")
-    reply = get_ai_response(message, "Casino support request")  # Use message_text for specific issue
+    reply = get_ai_response(message, "Casino support request")  # Use message for specific issue
     send_message(sender_id, f"{reply} Our team will review your issue and contact you soon.")
 
 def get_facebook_name(sender_id):
