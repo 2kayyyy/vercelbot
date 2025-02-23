@@ -4,7 +4,6 @@ import os
 import re
 import sqlite3
 import time
-from telegram import Bot
 from telegram.ext import Application
 from google.generativeai import GenerativeModel, configure
 from dotenv import load_dotenv
@@ -30,7 +29,6 @@ print("Google Generative AI configured")  # Debug
 # Set up Application and Bot
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 print("Telegram Application built")  # Debug
-telegram_bot = Bot(TELEGRAM_BOT_TOKEN)  # Use Bot directly for synchronous calls
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -78,10 +76,13 @@ def webhook():
 def send_telegram_alert(message):
     print(f"Attempting Telegram alert: {message}")  # Debug
     try:
-        telegram_bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)  # Synchronous call
+        result = application.bot.run_sync(
+            lambda: application.bot.send_message(chat_id=TELEGRAM_CHANNEL_ID, text=message)
+        )
         print(f"Telegram alert sent successfully: {message}")  # Debug
     except Exception as e:
         print(f"Telegram alert failed: {e}")  # Debug
+
 
 def init_db():
     print("Initializing database")  # Debug
